@@ -92,11 +92,17 @@ def alerts_acked() -> Check:
     if not txt:
         return Check("alerts", True, "no pending alerts")
     import re
+    from . import notify
     m = re.findall(r"UNACKED (?:for )?(\d+)h", txt)
     age = max((int(x) for x in m), default=0)
     n = len([l for l in txt.splitlines() if l.strip()])
-    return Check("alerts", False,
-                 f"{n} lines unread, oldest unacked {age}h. Nothing on this box can reach you.")
+    # Do not claim unreachability once the push channel is armed -- that WAS true, and
+    # saying it after it stops being true is exactly the kind of stale alert text that
+    # trains a person to ignore the alerter.
+    why = ("Backlog from before the push channel existed; read and ack it."
+           if notify.armed() else
+           "Nothing on this box can reach you.")
+    return Check("alerts", False, f"{n} lines unread, oldest unacked {age}h. {why}")
 
 
 def push_channel() -> Check:
