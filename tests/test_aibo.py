@@ -66,6 +66,19 @@ class AskDiscipline(unittest.TestCase):
 class NotifyHonesty(unittest.TestCase):
     """notify() must never report a file write as a delivery."""
 
+    def test_non_latin1_title_does_not_kill_the_alert(self):
+        """Regression: HTTP headers are latin-1, and "aibō" is not.
+
+        This threw UnicodeEncodeError on the very first real push, meaning the
+        alerter died on its own name and the alert was never sent. A monitor whose
+        failure mode is silence is the one thing this project exists to prevent.
+        """
+        out = notify._header_safe("aibō: 2 things need you")
+        out.encode("latin-1")                      # must not raise
+        self.assertTrue(out.startswith("=?utf-8?"), f"expected RFC 2047, got {out!r}")
+        # plain ASCII must pass through untouched, not get needlessly encoded
+        self.assertEqual(notify._header_safe("plain title"), "plain title")
+
     def test_unarmed_channel_does_not_claim_to_have_reached_the_phone(self):
         real = notify.topic
         try:
