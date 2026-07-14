@@ -1,6 +1,6 @@
-"""Asks — the one queue of things only Wasif can decide.
+"""Asks — the one queue of things only you can decide.
 
-The box has never lacked information. It has lacked a single place where
+This machine never lacked information. It has lacked a single place where
 "a human must act on this" is collected, ranked, and PUSHED. Alerts went to
 alerts-pending.txt. Stalled applications went to a TSV. Security rotations
 went to a research note. Each channel was separately ignorable, and each was
@@ -8,7 +8,7 @@ separately ignored.
 
 An Ask has exactly one property that matters: it is BLOCKING something real.
 If nothing is blocked, it is not an Ask, it is a log line, and it does not
-get to interrupt him.
+get to interrupt you.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ class Ask:
     title: str
     severity: str            # critical | blocking | advisory
     blocking: str            # what is NOT happening because this is unanswered
-    action: str              # the literal thing he does to resolve it
+    action: str              # the literal thing you do to resolve it
     source: str
     detail: str = ""
     first_seen: str = field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
@@ -41,6 +41,13 @@ class Ask:
 # ---------- collectors: each reads a system that already exists ----------
 
 def _security_rotations() -> list[Ask]:
+    """Surface a standing credential-rotation alert without restating the secret.
+
+    Deliberately does NOT hardcode the remediation. The alert file already says what
+    to rotate and how; duplicating it here would mean a security runbook drifting in
+    two places, and would bake one machine's private layout into a public repo. So
+    aibō points at the alert and gets out of the way.
+    """
     try:
         txt = paths.ALERTS_PENDING.read_text()
     except OSError:
@@ -49,27 +56,21 @@ def _security_rotations() -> list[Ask]:
         return []
 
     age = ""
-    m = re.search(r"UNACKED (?:for )?(\d+)h", txt)
+    m = re.findall(r"UNACKED (?:for )?(\d+)h", txt)
     if m:
-        age = f" Unacked for {m.group(1)}h."
+        age = f" Unacked for {max(int(x) for x in m)}h."
+
     return [
         Ask(
             id="sec-rotate",
-            title="Rotate the two secrets that were sitting in cleartext",
+            title="A credential rotation is outstanding",
             severity="critical",
             blocking=(
-                "Nothing is blocked — which is the problem. The Gmail app password still "
-                "works, so outreach and ATS-code fetching keep running on a credential that "
-                "was exposed in bash_history." + age
+                "Nothing is blocked, which is exactly the problem: the exposed credential "
+                "still works, so every pipeline that uses it keeps running on it." + age
             ),
-            action=(
-                "Gmail app password: Google Account > Security > App passwords, then update "
-                "line 2 of ~/.config/career-ops/gmail-imap.txt. "
-                "Voice token: openssl rand -hex 24 > ~/agent-laptop/config/voice-token "
-                "&& systemctl --user restart voice-api.service"
-            ),
-            source="agent-laptop/state/alerts-pending.txt",
-            detail="Full report: box-vault 08 Research/security-audit-2026-07-08.md",
+            action=f"cat {paths.ALERTS_PENDING}   then, once done: {paths.AGENT_LAPTOP}/scripts/alert-ack.sh",
+            source=str(paths.ALERTS_PENDING),
         )
     ]
 

@@ -18,8 +18,23 @@ from . import paths
 @dataclass
 class Check:
     name: str
-    ok: bool
+    ok: bool | None      # True pass · False fail · None not applicable (system absent)
     detail: str
+
+    @property
+    def failed(self) -> bool:
+        return self.ok is False
+
+
+def _absent(name: str, what) -> Check:
+    """A system that isn't installed is ABSENT, not broken.
+
+    "Silence is failure" applies to a system that exists and said nothing. It does
+    not apply to one that was never here — reporting a missing career-ops as a
+    failure would cry wolf on every fresh install, and a monitor that cries wolf
+    gets ignored, which is the exact disease aibō exists to treat.
+    """
+    return Check(name, None, f"not installed ({what})")
 
 
 def _days_ago(n: int) -> str:
@@ -28,6 +43,8 @@ def _days_ago(n: int) -> str:
 
 def applications_submitted(days: int = 7) -> Check:
     """The outcome floor. A job-hunt pipeline that submits nothing is not working."""
+    if not paths.CAREER_OPS.exists():
+        return _absent("applications", "no career-ops checkout")
     cutoff = _days_ago(days)
     try:
         rows = list(csv.reader(paths.CO_APPLIED_LOG.open(), delimiter="\t"))
@@ -50,6 +67,8 @@ def applications_submitted(days: int = 7) -> Check:
 
 
 def job_hunt_ran() -> Check:
+    if not paths.CAREER_OPS.exists():
+        return _absent("job-hunt", "no career-ops checkout")
     today = datetime.now().strftime("%Y-%m-%d")
     try:
         log = paths.CO_DAILY_LOG.read_text()
@@ -77,15 +96,15 @@ def alerts_acked() -> Check:
     age = max((int(x) for x in m), default=0)
     n = len([l for l in txt.splitlines() if l.strip()])
     return Check("alerts", False,
-                 f"{n} lines unread, oldest unacked {age}h. Nothing on this box can reach him.")
+                 f"{n} lines unread, oldest unacked {age}h. Nothing on this box can reach you.")
 
 
 def push_channel() -> Check:
     from . import notify
     if notify.armed():
-        return Check("push", True, "ntfy topic armed")
+        return Check("push", True, "push channel armed")
     return Check("push", False,
-                 "NOT armed. Every alert is a file he must remember to open. "
+                 "NOT armed. Every alert is a file you must remember to open. "
                  "This is the root cause of every stale item below.")
 
 
@@ -110,6 +129,8 @@ def memory_pressure() -> Check:
 
 
 def email_drafts() -> Check:
+    if not (paths.AGENT_LAPTOP / "reports").exists():
+        return _absent("email-triage", "no agent-laptop reports dir")
     today = datetime.now().strftime("%Y-%m-%d")
     p = paths.AGENT_LAPTOP / "reports" / f"email-triage-{today}.md"
     if p.exists():

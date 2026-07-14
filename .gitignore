@@ -1,4 +1,8 @@
+# box-specific operational notes — never publish
+NOTES.md
+
 .venv/
 __pycache__/
+*.pyc
 data/asks.json
 logs/

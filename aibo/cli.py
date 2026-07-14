@@ -1,17 +1,17 @@
 """aibō — 相棒, "partner".
 
-The box already had a job hunter, an email triager, an outreach sender, a
-research fetcher and a liveness monitor. What it did not have was anything that
-knew they existed. Five pipelines, five state files, five alert channels, none
-of which could reach the one human they all needed.
+The machine this was built for already had a job hunter, an email triager, an
+outreach sender, a research fetcher and a liveness monitor. What it did not have
+was anything that knew they existed. Five pipelines, five state files, five alert
+channels, and not one of them could reach the single human they all depended on.
 
-aibō is not a sixth pipeline. It is the layer that reads them all, decides what
-only Wasif can decide, and pushes that -- and only that -- at him.
+aibō is not a sixth pipeline. It is the layer that reads them all, works out what
+only a human can decide, and pushes that -- and only that -- at you.
 
   aibo brief     one screen: what happened, what is stuck, what needs you
   aibo doctor    honest health, measured by outcome, never by "it ran"
   aibo asks      the queue of things only a human can answer
-  aibo answers   what the box gets asked, and what it may answer for him
+  aibo answers   what your tools get asked, and what it may answer for you
   aibo push      prove the phone channel works
   aibo fix       apply a staged plumbing fix
 """
@@ -26,21 +26,24 @@ from .core import answers, asks, doctor, facts, notify
 G, R, Y, B, DIM, X = "\033[32m", "\033[31m", "\033[33m", "\033[1m", "\033[2m", "\033[0m"
 
 
-def _tick(ok: bool) -> str:
+def _tick(ok: bool | None) -> str:
+    if ok is None:
+        return f"{DIM}n/a{X} "
     return f"{G}ok{X}  " if ok else f"{R}BAD{X} "
 
 
 def cmd_doctor(_a) -> int:
     checks = doctor.run()
-    bad = [c for c in checks if not c.ok]
+    bad = [c for c in checks if c.failed]
+    live = [c for c in checks if c.ok is not None]
     print(f"\n{B}aibō doctor{X}  {DIM}— outcome, not uptime{X}\n")
     for c in checks:
         print(f"  {_tick(c.ok)} {c.name:<14} {c.detail}")
     print()
     if bad:
-        print(f"  {R}{len(bad)} of {len(checks)} checks failing.{X} Run {B}aibo asks{X} for what to do.\n")
+        print(f"  {R}{len(bad)} of {len(live)} checks failing.{X} Run {B}aibo asks{X} for what to do.\n")
     else:
-        print(f"  {G}All {len(checks)} checks pass.{X}\n")
+        print(f"  {G}All {len(live)} applicable checks pass.{X}\n")
     return 1 if bad else 0
 
 
@@ -102,12 +105,13 @@ def cmd_brief(_a) -> int:
     checks = doctor.run()
     items = asks.collect()
     asks.save(items)
-    bad = [c for c in checks if not c.ok]
+    bad = [c for c in checks if c.failed]
+    live = [c for c in checks if c.ok is not None]
     f = facts.known()
 
     print(f"\n{B}aibō{X}  {DIM}partner — brief{X}\n")
     print(f"  Knows {len(f)} facts about you, each with a source.")
-    print(f"  {len(checks) - len(bad)}/{len(checks)} systems healthy."
+    print(f"  {len(live) - len(bad)}/{len(live)} systems healthy."
           f"{'' if not bad else '  ' + R + ', '.join(c.name for c in bad) + X}")
     print(f"  {len(items)} thing(s) need you"
           f"{'' if not items else ': ' + R + items[0].title + X}")
@@ -127,7 +131,12 @@ def cmd_push(a) -> int:
 
 def cmd_fix(a) -> int:
     if a.what == "browser":
-        line = "*/20 * * * * /home/wasif/agent-laptop/scripts/apply-browser-reaper.sh >/dev/null 2>&1 # aibo browser-reaper (delete this line to disable)"
+        from .core import paths
+        reaper = paths.AGENT_LAPTOP / "scripts" / "apply-browser-reaper.sh"
+        if not reaper.exists():
+            print(f"\n  {Y}No reaper script at {reaper}.{X}\n")
+            return 1
+        line = f"*/20 * * * * {reaper} >/dev/null 2>&1 # aibo browser-reaper (delete this line to disable)"
         cur = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout
         if "apply-browser-reaper" in cur:
             print("\n  Already installed.\n")

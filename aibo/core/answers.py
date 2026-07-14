@@ -1,4 +1,4 @@
-"""What the box gets asked, and what it can answer on Wasif's behalf.
+"""What your tools get asked, and what aibō can answer on your behalf.
 
 This does not keep a second copy of the answer bank. career-ops already has one
 (BANK in bin/build-fill-plan.py), and a duplicate would drift within a week.
@@ -8,11 +8,11 @@ actually hard-stopped an application — so coverage is measured, never assumed.
 The split that matters:
 
   FACT     — "Are you legally authorized to work in Australia?"  aibō may answer.
-             He has stated it in profile.yml and submitted it, in his own words,
+             You have stated it in profile.yml and submitted it, in your own words,
              to four employers.
 
   CONSENT  — "I agree to the Recruitment Privacy Policy."         aibō may NOT.
-             Consent is not a fact about him to look up. It is a decision to make.
+             Consent is not a fact about you to look up. It is a decision to make.
              So it becomes an Ask, and he clears the whole class in one command.
 """
 from __future__ import annotations

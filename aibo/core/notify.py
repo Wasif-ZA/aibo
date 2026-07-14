@@ -1,12 +1,13 @@
-"""Reaching Wasif.
+"""Actually reaching the human.
 
-The box's original sin: every channel was PULL. A CRITICAL alert sat unread for
-75 hours; a 7-day outage was written into the daily brief seven times and read
-zero times. Writing to a file the human never opens is not a notification.
+The original sin of the machine this was built for: every channel was PULL. A
+CRITICAL alert sat unread for 143 hours; a 7-day outage was written into the daily
+brief seven times and read zero times. Writing to a file nobody opens is not a
+notification.
 
 So notify() has a ladder, and it is honest about which rung it reached:
 
-  PUSH  — ntfy topic armed  -> lands on his phone.
+  PUSH  — ntfy topic armed  -> lands on your phone.
   FILE  — no topic          -> queued to the ask log, and we SAY SO.
 
 We never pretend a file write was a delivery.
@@ -43,7 +44,7 @@ def armed() -> bool:
 
 
 def notify(title: str, body: str, priority: str = "default", tags: str = "") -> Delivery:
-    """Try to actually reach him. Return the truth about whether we did."""
+    """Try to actually reach you. Return the truth about whether we did."""
     paths.ensure()
     stamp = datetime.now().isoformat(timespec="seconds")
 
@@ -70,7 +71,7 @@ def notify(title: str, body: str, priority: str = "default", tags: str = "") -> 
     return Delivery(
         False,
         "file",
-        "no push channel armed — this is sitting in a file he has to remember to open. "
+        "no push channel armed — this is sitting in a file you have to remember to open. "
         "Arm it: ~/agent-laptop/scripts/arm-push-alerts.sh",
     )
 

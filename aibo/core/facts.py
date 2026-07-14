@@ -1,9 +1,9 @@
-"""What aibō knows about Wasif — and where it learned it.
+"""What aibō knows about you — and where it learned it.
 
 Every fact carries provenance. That is the whole point: aibō is allowed to
-ANSWER on his behalf only when it can point at where he already said it.
+ANSWER on your behalf only when it can point at where you already said it.
 A fact with no source is not a fact, it is a guess, and a guess about
-"do you require visa sponsorship" goes into a real application under his
+"do you require visa sponsorship" goes into a real application under your
 real name. So guesses become Asks instead.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ class Fact:
     key: str
     value: str
     source: str          # human-readable provenance
-    confidence: str      # "stated" (he wrote it) | "derived" (inferred from what he wrote)
+    confidence: str      # "stated" (you wrote it) | "derived" (inferred from what you wrote)
 
     @property
     def trustworthy(self) -> bool:
@@ -74,7 +74,7 @@ def known() -> dict[str, Fact]:
     add("degree", edu.get("qualification"), src)
     add("institution", edu.get("institution"), src)
 
-    # Long-form answers he has already written and shipped in real applications.
+    # Long-form answers you have already written and shipped in real applications.
     # These are the strongest provenance there is: he sent them to employers.
     ra = _load_json(paths.CO_ROLE_ANSWERS)
     for job_id, ans in ra.items():
@@ -82,7 +82,7 @@ def known() -> dict[str, Fact]:
             add(
                 "work_rights_statement",
                 ans["work_rights"],
-                f"career-ops role-answers.json (his own words, submitted to job {job_id})",
+                f"career-ops role-answers.json (your own words, submitted to job {job_id})",
             )
             break
 
