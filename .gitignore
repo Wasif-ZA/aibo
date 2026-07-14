@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 data/asks.json
 logs/
+
+# local agent tooling
+.claude/
