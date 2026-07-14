@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# aibo — entrypoint. Uses aibo's own venv so it never depends on the caller's env.
+exec /home/wasif/projects/aibo/.venv/bin/python -m aibo.cli "$@"
