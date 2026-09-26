@@ -1,0 +1,4 @@
+2026-09-10T08:01	auto	Example Corp	Junior Developer	https://example.com/jobs/1	submitted	demo row
+2026-09-24T08:03	auto	Sample Pty Ltd	Graduate Engineer	https://example.com/jobs/2	hard-stop	hard-stop:unknown_required_field (Are you legally authorized to work in Example City?; What is your notice period?; I agree to the Recruitment Privacy Policy)
+2026-09-25T08:02	auto	Placeholder Labs	Data Analyst	https://example.com/jobs/3	hard-stop	hard-stop:unknown_required_field (Will you now or in the future require sponsorship?; Keep my resume on file for future roles)
+2026-09-26T08:04	auto	Fictional Co	Support Engineer	https://example.com/jobs/4	needs_review	captcha on submit

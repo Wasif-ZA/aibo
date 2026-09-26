@@ -6,9 +6,12 @@ aibo does not own the box's data. It reads the systems that already exist
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 
-HOME = Path(os.environ.get("AIBO_HOME", Path.home() / "projects" / "aibo"))
+_REPO = Path(__file__).resolve().parents[2]
+_DEFAULT_HOME = _REPO if (_REPO / "pyproject.toml").exists() else Path.home() / ".aibo"
+HOME = Path(os.environ.get("AIBO_HOME", _DEFAULT_HOME))
 
 DATA = HOME / "data"
 LOGS = HOME / "logs"
@@ -50,6 +53,12 @@ NTFY_TOPIC_FILE = AGENT_LAPTOP / ".ntfy-topic"
 
 VAULT = _env("AIBO_VAULT", BOX / "box-vault")
 DAILY_DIR = VAULT / "06 Daily"
+
+
+def now() -> datetime:
+    """Current time, or noon on AIBO_TODAY (YYYY-MM-DD) when set, for demos and tests."""
+    d = os.environ.get("AIBO_TODAY")
+    return datetime.fromisoformat(d).replace(hour=12) if d else datetime.now()
 
 
 def ensure() -> None:

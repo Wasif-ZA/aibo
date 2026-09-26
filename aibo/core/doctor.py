@@ -2,15 +2,18 @@
 
 The old monitoring asked "did the pipeline run?" and answered yes for seven days
 while box-apply died on a 404 every morning. Running is not succeeding. Every
-check here asks for EVIDENCE OF AN OUTCOME -- an application submitted, a draft
-written, a report produced -- and treats silence as failure, never as health.
+check here asks for EVIDENCE OF AN OUTCOME (an application submitted, a draft
+written, a report produced) and treats silence as failure, never as health.
 """
 from __future__ import annotations
 
 import csv
+import re
+import shutil
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
+from pathlib import Path
 
 from . import paths
 
@@ -18,7 +21,7 @@ from . import paths
 @dataclass
 class Check:
     name: str
-    ok: bool | None      # True pass · False fail · None not applicable (system absent)
+    ok: bool | None      # True pass, False fail, None not applicable (system absent or unsupported)
     detail: str
 
     @property
@@ -30,15 +33,31 @@ def _absent(name: str, what) -> Check:
     """A system that isn't installed is ABSENT, not broken.
 
     "Silence is failure" applies to a system that exists and said nothing. It does
-    not apply to one that was never here — reporting a missing career-ops as a
+    not apply to one that was never here: reporting a missing career-ops as a
     failure would cry wolf on every fresh install, and a monitor that cries wolf
-    gets ignored, which is the exact disease aibō exists to treat.
+    gets ignored, which is the exact disease aibo exists to treat.
     """
     return Check(name, None, f"not installed ({what})")
 
 
 def _days_ago(n: int) -> str:
-    return (datetime.now() - timedelta(days=n)).strftime("%Y-%m-%d")
+    return (paths.now() - timedelta(days=n)).strftime("%Y-%m-%d")
+
+
+def _today() -> str:
+    return paths.now().strftime("%Y-%m-%d")
+
+
+def renderer_count() -> int | None:
+    """Chromium renderer processes on this machine, or None where pgrep is unavailable."""
+    if not shutil.which("pgrep"):
+        return None
+    try:
+        out = subprocess.run(["pgrep", "-fc", "chrome --type=renderer"],
+                             capture_output=True, text=True, timeout=10).stdout.strip()
+        return int(out or 0)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
 
 
 def applications_submitted(days: int = 7) -> Check:
@@ -47,7 +66,8 @@ def applications_submitted(days: int = 7) -> Check:
         return _absent("applications", "no career-ops checkout")
     cutoff = _days_ago(days)
     try:
-        rows = list(csv.reader(paths.CO_APPLIED_LOG.open(), delimiter="\t"))
+        with paths.CO_APPLIED_LOG.open(encoding="utf-8", newline="") as f:
+            rows = list(csv.reader(f, delimiter="\t"))
     except OSError as e:
         return Check("applications", False, f"cannot read the applied log: {e}")
 
@@ -69,9 +89,9 @@ def applications_submitted(days: int = 7) -> Check:
 def job_hunt_ran() -> Check:
     if not paths.CAREER_OPS.exists():
         return _absent("job-hunt", "no career-ops checkout")
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = _today()
     try:
-        log = paths.CO_DAILY_LOG.read_text()
+        log = paths.CO_DAILY_LOG.read_text(encoding="utf-8")
     except OSError:
         return Check("job-hunt", False, "no daily.log at all")
     lines = [l for l in log.splitlines() if today in l]
@@ -85,20 +105,18 @@ def job_hunt_ran() -> Check:
 
 
 def alerts_acked() -> Check:
+    from . import notify
+    if not paths.AGENT_LAPTOP.exists():
+        return _absent("alerts", "no agent-laptop dir")
     try:
-        txt = paths.ALERTS_PENDING.read_text().strip()
+        txt = paths.ALERTS_PENDING.read_text(encoding="utf-8").strip()
     except OSError:
         return Check("alerts", True, "no pending alerts")
     if not txt:
         return Check("alerts", True, "no pending alerts")
-    import re
-    from . import notify
     m = re.findall(r"UNACKED (?:for )?(\d+)h", txt)
     age = max((int(x) for x in m), default=0)
     n = len([l for l in txt.splitlines() if l.strip()])
-    # Do not claim unreachability once the push channel is armed -- that WAS true, and
-    # saying it after it stops being true is exactly the kind of stale alert text that
-    # trains a person to ignore the alerter.
     why = ("Backlog from before the push channel existed; read and ack it."
            if notify.armed() else
            "Nothing on this box can reach you.")
@@ -114,35 +132,36 @@ def push_channel() -> Check:
                  "This is the root cause of every stale item below.")
 
 
-def memory_pressure() -> Check:
+def _mem_available_mb() -> int | None:
     try:
-        n = int(subprocess.run(["pgrep", "-fc", "chrome --type=renderer"],
-                               capture_output=True, text=True, timeout=10).stdout.strip() or 0)
-    except (subprocess.SubprocessError, ValueError):
-        return Check("memory", True, "could not sample renderers")
-    avail = 0
-    try:
-        for line in open("/proc/meminfo"):
-            if line.startswith("MemAvailable"):
-                avail = int(line.split()[1]) // 1024
-                break
-    except OSError:
+        with open("/proc/meminfo", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable"):
+                    return int(line.split()[1]) // 1024
+    except (OSError, ValueError):
         pass
+    return None
+
+
+def memory_pressure() -> Check:
+    n = renderer_count()
+    if n is None:
+        return Check("memory", None, "not available on this platform (needs pgrep)")
+    avail = _mem_available_mb()
+    mem = f"{avail}MB available" if avail is not None else "free memory unknown (no /proc/meminfo)"
     if n > 20:
-        return Check("memory", False,
-                     f"{n} leaked Chromium renderers, {avail}MB available. The box is swapping.")
-    return Check("memory", True, f"{n} renderers, {avail}MB available")
+        return Check("memory", False, f"{n} leaked Chromium renderers, {mem}. The box is swapping.")
+    return Check("memory", True, f"{n} renderers, {mem}")
 
 
 def email_drafts() -> Check:
-    if not (paths.AGENT_LAPTOP / "reports").exists():
+    reports = paths.AGENT_LAPTOP / "reports"
+    if not reports.exists():
         return _absent("email-triage", "no agent-laptop reports dir")
-    today = datetime.now().strftime("%Y-%m-%d")
-    p = paths.AGENT_LAPTOP / "reports" / f"email-triage-{today}.md"
+    p: Path = reports / f"email-triage-{_today()}.md"
     if p.exists():
         return Check("email-triage", True, f"produced {p.name}")
-    y = paths.AGENT_LAPTOP / "reports" / f"email-triage-{_days_ago(1)}.md"
-    if y.exists():
+    if (reports / f"email-triage-{_days_ago(1)}.md").exists():
         return Check("email-triage", True, "no report yet today (07:00 cron); yesterday's exists")
     return Check("email-triage", False, "no triage report today or yesterday")
 

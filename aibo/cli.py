@@ -1,4 +1,4 @@
-"""aibō — 相棒, "partner".
+"""aibo (相棒), "partner".
 
 The machine this was built for already had a job hunter, an email triager, an
 outreach sender, a research fetcher and a liveness monitor. What it did not have
@@ -18,12 +18,16 @@ only a human can decide, and pushes that -- and only that -- at you.
 from __future__ import annotations
 
 import argparse
+import os
+import shutil
 import subprocess
 import sys
 
 from .core import answers, asks, doctor, facts, notify
 
 G, R, Y, B, DIM, X = "\033[32m", "\033[31m", "\033[33m", "\033[1m", "\033[2m", "\033[0m"
+if os.environ.get("NO_COLOR") or not sys.stdout.isatty():
+    G = R = Y = B = DIM = X = ""
 
 
 def _tick(ok: bool | None) -> str:
@@ -36,7 +40,7 @@ def cmd_doctor(_a) -> int:
     checks = doctor.run()
     bad = [c for c in checks if c.failed]
     live = [c for c in checks if c.ok is not None]
-    print(f"\n{B}aibō doctor{X}  {DIM}— outcome, not uptime{X}\n")
+    print(f"\n{B}aibō doctor{X}  {DIM}outcome, not uptime{X}\n")
     for c in checks:
         print(f"  {_tick(c.ok)} {c.name:<14} {c.detail}")
     print()
@@ -55,7 +59,7 @@ def cmd_asks(a) -> int:
         print(f"\n  {G}Nothing needs you.{X}\n")
         return 0
 
-    print(f"\n{B}aibō asks{X}  {DIM}— {len(items)} thing(s) only you can do{X}\n")
+    print(f"\n{B}aibō asks{X}  {DIM}{len(items)} thing(s) only you can do{X}\n")
     for i, k in enumerate(items, 1):
         colour = R if k.severity == "critical" else (Y if k.severity == "blocking" else DIM)
         print(f"  {colour}{i}. [{k.severity}] {k.title}{X}")
@@ -74,7 +78,11 @@ def cmd_asks(a) -> int:
 
 def cmd_answers(_a) -> int:
     cov = answers.coverage()
-    print(f"\n{B}aibō answers{X}  {DIM}— questions that actually stopped an application{X}\n")
+    print(f"\n{B}aibō answers{X}  {DIM}questions that actually stopped an application{X}\n")
+
+    if cov["unavailable"]:
+        print(f"  {R if cov['failed'] else DIM}{'BAD' if cov['failed'] else 'n/a'}{X}  {cov['unavailable']}\n")
+        return 1 if cov["failed"] else 0
 
     if not cov["total"]:
         print(f"  {G}No application has been blocked by an unanswerable question recently.{X}\n")
@@ -109,7 +117,7 @@ def cmd_brief(_a) -> int:
     live = [c for c in checks if c.ok is not None]
     f = facts.known()
 
-    print(f"\n{B}aibō{X}  {DIM}partner — brief{X}\n")
+    print(f"\n{B}aibō{X}  {DIM}partner, brief{X}\n")
     print(f"  Knows {len(f)} facts about you, each with a source.")
     print(f"  {len(live) - len(bad)}/{len(live)} systems healthy."
           f"{'' if not bad else '  ' + R + ', '.join(c.name for c in bad) + X}")
@@ -132,6 +140,9 @@ def cmd_push(a) -> int:
 def cmd_fix(a) -> int:
     if a.what == "browser":
         from .core import paths
+        if not shutil.which("crontab"):
+            print(f"\n  {Y}Not available on this platform (no crontab).{X} Nothing was installed.\n")
+            return 1
         reaper = paths.AGENT_LAPTOP / "scripts" / "apply-browser-reaper.sh"
         if not reaper.exists():
             print(f"\n  {Y}No reaper script at {reaper}.{X}\n")
@@ -151,7 +162,7 @@ def cmd_fix(a) -> int:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="aibo", description="aibō — your partner on this box")
+    p = argparse.ArgumentParser(prog="aibo", description="aibo: your partner on this box")
     sub = p.add_subparsers(dest="cmd")
 
     sub.add_parser("brief", help="one screen: state of everything").set_defaults(fn=cmd_brief)
@@ -171,6 +182,8 @@ def main(argv=None) -> int:
     fx.add_argument("what", choices=["browser"])
     fx.set_defaults(fn=cmd_fix)
 
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     args = p.parse_args(argv)
     if not getattr(args, "fn", None):
         return cmd_brief(args)

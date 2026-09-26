@@ -5,7 +5,7 @@ NOTES.md
 __pycache__/
 *.pyc
 data/asks.json
-logs/
+/logs/
 
 # local agent tooling
 .claude/

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# aibo — entrypoint. Resolves its own location, so the repo can live anywhere.
+# aibo entrypoint. Resolves its own location, so the repo can live anywhere.
 # Prefers the project venv; falls back to whatever python3 is on PATH.
 set -euo pipefail
 here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 py="$here/.venv/bin/python"
-[ -x "$py" ] || py="$(command -v python3)"
+[ -x "$py" ] || py="$here/.venv/Scripts/python.exe"
+[ -x "$py" ] || py="$(command -v python3 || command -v python)"
 cd "$here"
 exec "$py" -m aibo.cli "$@"

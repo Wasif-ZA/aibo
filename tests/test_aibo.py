@@ -7,6 +7,7 @@ so that boundary gets a test.
 import unittest
 
 from aibo.core import answers, asks, notify
+from tests.test_boundaries import DemoBox
 
 
 class ConsentBoundary(unittest.TestCase):
@@ -63,7 +64,7 @@ class AskDiscipline(unittest.TestCase):
         self.assertTrue(any("collector" in a.id for a in out))
 
 
-class NotifyHonesty(unittest.TestCase):
+class NotifyHonesty(DemoBox):
     """notify() must never report a file write as a delivery."""
 
     def test_non_latin1_title_does_not_kill_the_alert(self):

@@ -1,4 +1,4 @@
-"""Asks — the one queue of things only you can decide.
+"""Asks: the one queue of things only you can decide.
 
 This machine never lacked information. It has lacked a single place where
 "a human must act on this" is collected, ranked, and PUSHED. Alerts went to
@@ -49,7 +49,7 @@ def _security_rotations() -> list[Ask]:
     aibō points at the alert and gets out of the way.
     """
     try:
-        txt = paths.ALERTS_PENDING.read_text()
+        txt = paths.ALERTS_PENDING.read_text(encoding="utf-8")
     except OSError:
         return []
     if "ROTATE NOW" not in txt:
@@ -60,6 +60,8 @@ def _security_rotations() -> list[Ask]:
     if m:
         age = f" Unacked for {max(int(x) for x in m)}h."
 
+    ack = paths.AGENT_LAPTOP / "scripts" / "alert-ack.sh"
+    done = str(ack) if ack.exists() else "remove the handled lines from that file"
     return [
         Ask(
             id="sec-rotate",
@@ -69,7 +71,7 @@ def _security_rotations() -> list[Ask]:
                 "Nothing is blocked, which is exactly the problem: the exposed credential "
                 "still works, so every pipeline that uses it keeps running on it." + age
             ),
-            action=f"cat {paths.ALERTS_PENDING}   then, once done: {paths.AGENT_LAPTOP}/scripts/alert-ack.sh",
+            action=f"cat {paths.ALERTS_PENDING}   then, once done: {done}",
             source=str(paths.ALERTS_PENDING),
         )
     ]
@@ -83,15 +85,14 @@ def _unarmed_push() -> list[Ask]:
     return [
         Ask(
             id="arm-push",
-            title="Arm the push channel — nothing on this box can reach you",
+            title="Arm the push channel: nothing on this box can reach you",
             severity="critical",
             blocking=(
-                "Every ask below this line. They are all sitting in files. The last critical "
-                "alert waited 143 hours to be read. Until this is armed, aibō is writing "
-                "letters it cannot post."
+                "Every ask below this line. They are all sitting in files. Until this is "
+                "armed, aibo is writing letters it cannot post."
             ),
-            action="~/agent-laptop/scripts/arm-push-alerts.sh   then subscribe on your phone (ntfy app)",
-            source="agent-laptop/.ntfy-topic is absent",
+            action=notify.arm_instruction(),
+            source=f"{paths.NTFY_TOPIC_FILE} is absent",
             detail="Publishes alert text to ntfy.sh (public third-party). That is why it is your call, not aibō's.",
         )
     ]
@@ -101,11 +102,12 @@ def _stalled_applications() -> list[Ask]:
     """Roles that box-apply reached, filled, and could NOT submit."""
     asks: list[Ask] = []
     try:
-        rows = list(csv.reader(paths.CO_APPLIED_LOG.open(), delimiter="\t"))
+        with paths.CO_APPLIED_LOG.open(encoding="utf-8", newline="") as f:
+            rows = list(csv.reader(f, delimiter="\t"))
     except OSError:
         return []
 
-    cutoff = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    cutoff = (paths.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     blocked_q: dict[str, list[str]] = {}
     review: list[str] = []
 
@@ -115,10 +117,10 @@ def _stalled_applications() -> list[Ask]:
         ts, _mode, company, role, _url, status, notes = r[0], r[1], r[2], r[3], r[4], r[5], r[6]
         # status is the coarse bucket ("hard-stop"); the reason is in notes.
         if status == "needs_review":
-            review.append(f"{company} — {role}")
+            review.append(f"{company} - {role}")
         elif "unknown_required_field" in notes:
             qs = re.findall(r"\(([^)]*)\)", notes)
-            blocked_q.setdefault(f"{company} — {role}", []).extend(
+            blocked_q.setdefault(f"{company} - {role}", []).extend(
                 q.strip() for q in (qs[0].split(";") if qs else [])
             )
 
@@ -131,16 +133,13 @@ def _stalled_applications() -> list[Ask]:
                 severity="blocking",
                 blocking=(
                     f"These roles: {roles}. box-apply filled every field it knew, hit a "
-                    "screening question it had no answer for, and hard-stopped. It has "
-                    "submitted 0 applications for several days running while the cap sat unused."
+                    "screening question it had no answer for, and hard-stopped."
                 ),
                 action="aibo answers   (shows exactly which question stopped each one)",
                 source="career-ops auto-applied-log.tsv (hard-stop:unknown_required_field)",
                 detail=(
-                    "Root cause was found and fixed on 2026-07-14: match_option() stringified "
-                    "the list of acceptable answers, so work-rights and sponsorship questions "
-                    "resolved to nothing. What remains is consent checkboxes, which are yours "
-                    "to decide. These rows are historical -- the next run (Mon 07:52) is the test."
+                    "Facts aibo can answer from your own records are shown by `aibo answers`. "
+                    "Consent checkboxes are yours to decide; aibo never answers them."
                 ),
             )
         )
@@ -160,16 +159,10 @@ def _stalled_applications() -> list[Ask]:
 
 
 def _leaked_browser() -> list[Ask]:
-    import subprocess
+    from .doctor import renderer_count
 
-    try:
-        n = int(subprocess.run(
-            ["pgrep", "-fc", "chrome --type=renderer"],
-            capture_output=True, text=True, timeout=10,
-        ).stdout.strip() or 0)
-    except (subprocess.SubprocessError, ValueError):
-        return []
-    if n <= 20:
+    n = renderer_count()
+    if n is None or n <= 20:
         return []
     return [
         Ask(
@@ -194,9 +187,9 @@ def collect() -> list[Ask]:
         except Exception as e:  # a broken collector must not silence the others
             out.append(Ask(
                 id=f"collector-error-{c.__name__}",
-                title=f"aibō's own {c.__name__} collector crashed",
+                title=f"aibo's own {c.__name__} collector crashed",
                 severity="advisory",
-                blocking="aibō may be blind to a whole class of asks.",
+                blocking="aibo may be blind to a whole class of asks.",
                 action=f"Debug {c.__name__} in aibo/core/asks.py",
                 source="aibo",
                 detail=repr(e),
@@ -213,12 +206,12 @@ def save(items: list[Ask]) -> None:
         if a.id in prior:                       # preserve original first_seen
             d["first_seen"] = prior[a.id].get("first_seen", d["first_seen"])
         payload.append(d)
-    paths.ASKS.write_text(json.dumps(payload, indent=2))
+    paths.ASKS.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 def load_raw() -> list[dict]:
     try:
-        return json.loads(paths.ASKS.read_text())
+        return json.loads(paths.ASKS.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
 

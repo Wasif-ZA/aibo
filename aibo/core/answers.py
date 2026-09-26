@@ -3,15 +3,15 @@
 This does not keep a second copy of the answer bank. career-ops already has one
 (BANK in bin/build-fill-plan.py), and a duplicate would drift within a week.
 Instead aibō loads the REAL bank and probes it with the REAL questions that have
-actually hard-stopped an application — so coverage is measured, never assumed.
+actually hard-stopped an application, so coverage is measured, never assumed.
 
 The split that matters:
 
-  FACT     — "Are you legally authorized to work in Australia?"  aibō may answer.
+  FACT:    "Are you legally authorized to work in Australia?"  aibō may answer.
              You have stated it in profile.yml and submitted it, in your own words,
              to four employers.
 
-  CONSENT  — "I agree to the Recruitment Privacy Policy."         aibō may NOT.
+  CONSENT: "I agree to the Recruitment Privacy Policy."         aibō may NOT.
              Consent is not a fact about you to look up. It is a decision to make.
              So it becomes an Ask, and he clears the whole class in one command.
 """
@@ -44,11 +44,15 @@ class Question:
         return self.answer is not None
 
 
+class BankUnavailable(Exception):
+    """career-ops is installed but its answer bank could not be loaded."""
+
+
 def _bank():
-    """Load career-ops' real answer bank. Returns (answer_for, match_option) or None."""
+    """Load career-ops' real answer bank module."""
     p = paths.CAREER_OPS / "bin" / "build-fill-plan.py"
     if not p.exists():
-        return None
+        raise BankUnavailable(f"no answer bank at {p}")
     import sys
 
     sys.path.insert(0, str(p.parent))          # ats_mappers is a sibling import
@@ -58,24 +62,25 @@ def _bank():
         spec.loader.exec_module(mod)
     except SystemExit:
         pass
-    except Exception:
-        return None
+    except Exception as e:
+        raise BankUnavailable(f"{p} failed to load: {e!r}") from e
+    if not hasattr(mod, "answer_for"):
+        raise BankUnavailable(f"{p} has no answer_for()")
     return mod
 
 
 def blocking_questions(days: int = 14) -> list[Question]:
     """The exact questions that have hard-stopped a real application recently."""
     mod = _bank()
-    if mod is None:
-        return []
 
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff = (paths.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     seen: dict[str, Question] = {}
 
     try:
-        rows = list(csv.reader(paths.CO_APPLIED_LOG.open(), delimiter="\t"))
+        with paths.CO_APPLIED_LOG.open(encoding="utf-8", newline="") as f:
+            rows = list(csv.reader(f, delimiter="\t"))
     except OSError:
         return []
 
@@ -93,23 +98,29 @@ def blocking_questions(days: int = 14) -> list[Question]:
         for label in (q.strip() for q in inner[0].split(";")):
             if not label or label in seen:
                 continue
-            try:
-                ans = mod.answer_for(label, {})
-            except Exception:
-                ans = None
-            seen[label] = Question(
-                label=label,
-                company=company,
-                answer=ans,
-                kind="consent" if CONSENT_RE.search(label) else "fact",
-            )
+            kind = "consent" if CONSENT_RE.search(label) else "fact"
+            ans = None
+            if kind == "fact":                  # consent is never looked up, whatever the bank says
+                try:
+                    ans = mod.answer_for(label, {})
+                except Exception:
+                    ans = None
+            seen[label] = Question(label=label, company=company, answer=ans, kind=kind)
 
     return list(seen.values())
 
 
 def coverage() -> dict:
-    qs = blocking_questions()
+    """Split blocking questions by what aibo may answer. 'unavailable' says why none were checked."""
+    if not paths.CAREER_OPS.exists():
+        return {"total": 0, "unavailable": "not installed (no career-ops checkout)", "failed": False}
+    try:
+        qs = blocking_questions()
+    except BankUnavailable as e:
+        return {"total": 0, "unavailable": str(e), "failed": True}
     return {
+        "unavailable": None,
+        "failed": False,
         "total": len(qs),
         "answered": [q for q in qs if q.answered],
         "unanswered_facts": [q for q in qs if not q.answered and q.kind == "fact"],

@@ -1,4 +1,4 @@
-"""What aibō knows about you — and where it learned it.
+"""What aibo knows about you, and where it learned it.
 
 Every fact carries provenance. That is the whole point: aibō is allowed to
 ANSWER on your behalf only when it can point at where you already said it.
@@ -31,14 +31,14 @@ class Fact:
 
 def _load_yaml(p: Path) -> dict:
     try:
-        return yaml.safe_load(p.read_text()) or {}
+        return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError):
         return {}
 
 
 def _load_json(p: Path) -> dict:
     try:
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
 

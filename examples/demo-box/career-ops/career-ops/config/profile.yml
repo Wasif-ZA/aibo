@@ -1,0 +1,14 @@
+# DEMO DATA: an invented person.
+candidate:
+  full_name: Demo Person
+  email: demo.person@example.com
+  github: github.com/example-demo
+location:
+  city: Example City
+  visa_status: Citizen (demo)
+compensation:
+  target_range: "90k-110k (demo)"
+education:
+  - qualification: BSc Example Studies
+    institution: Example University
+    period: "2023 - 2026"

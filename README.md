@@ -112,16 +112,62 @@ a human. In its first hour aibō fixed a bug that was silently destroying every 
 application, and it *declined* to arm a notification channel, tick a consent box, or
 install a cron job, because those were not its call to make.
 
-## Install
+## Try it in 30 seconds
+
+`examples/demo-box/` is a fake box: an invented person, invented companies, invented
+alerts. Point aibo at it and every command shows real outcome-based output.
 
 ```bash
 git clone https://github.com/Wasif-ZA/aibo && cd aibo
-uv venv && uv pip install pyyaml
-./bin/aibo brief
+python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -e .
+export AIBO_TODAY=2026-09-26 AIBO_CAREER_OPS=examples/demo-box/career-ops AIBO_AGENT_HOME=examples/demo-box/agent-laptop
+aibo doctor
 ```
 
+PowerShell:
+
+```powershell
+$env:AIBO_TODAY="2026-09-26"; $env:AIBO_CAREER_OPS="examples/demo-box/career-ops"; $env:AIBO_AGENT_HOME="examples/demo-box/agent-laptop"
+aibo doctor
+```
+
+`AIBO_TODAY` pins the clock to the fixture's dates. You will see the job hunt *ran*
+today while *zero* applications were submitted, which is the whole point of measuring
+outcomes. `aibo answers` shows one consent checkbox the fake answer bank *could*
+answer, and aibo refusing to. `aibo push` says "Not delivered": the demo has no push
+channel, and aibo never calls a file write a delivery.
+
+## Install
+
+With uv:
+
+```bash
+uv venv && uv pip install -e .
+.venv/bin/aibo brief          # Windows: .venv\Scripts\aibo brief
+```
+
+With plain pip:
+
+```bash
+python -m venv .venv && .venv/bin/pip install -e .     # Windows: .venv\Scripts\pip install -e .
+.venv/bin/aibo brief
+```
+
+`bin/aibo` also runs it from a checkout without activating the venv.
 `aibo doctor` exits non-zero when anything is failing, so it drops straight into cron
 or CI.
+
+Tests use the standard library only:
+
+```bash
+python -m unittest -v
+```
+
+**Windows.** Everything runs. Two parts are Linux-only and say so instead of
+guessing: the memory check needs `pgrep` and `/proc` (it shows `n/a  not available on
+this platform`), and `aibo fix browser` needs `crontab` (it refuses and installs
+nothing).
 
 ## Configuration
 
@@ -130,10 +176,11 @@ the systems it federates over live*. All env-overridable, nothing baked in:
 
 | Variable | Default | What |
 |---|---|---|
-| `AIBO_HOME` | the repo | where aibō keeps its own state |
+| `AIBO_HOME` | the repo checkout, else `~/.aibo` | where aibo keeps its own state |
 | `AIBO_CAREER_OPS` | `~/projects/career-ops-sydney` | a [career-ops](https://github.com/santifer/career-ops) job-search checkout |
 | `AIBO_AGENT_HOME` | `~/agent-laptop` | automation root (alerts, scripts, reports) |
 | `AIBO_VAULT` | `~/box-vault` | notes vault |
+| `AIBO_TODAY` | unset (real clock) | pin "today" to a `YYYY-MM-DD`, for the demo and tests |
 
 Collectors degrade quietly: point aibō at a box with no career-ops and the job checks
 simply drop out. A collector that *crashes*, though, files an Ask against itself —
@@ -159,7 +206,10 @@ coverage is always measured and never assumed.
 
 ## Status
 
-v0.1, and honest about it. Built in one session, running against one box. The design
-generalizes; the adapters currently assume career-ops and a Linux box with cron.
+v0.1, and honest about it. Built in one session against one box, then made to
+install and run anywhere. Tested on Windows 11 against the demo box; the adapters still
+assume a career-ops checkout and an agent-laptop style alerts folder, and they drop
+out quietly when those are absent. The memory check and `aibo fix browser` are
+Linux-only and report that rather than guessing.
 
 MIT.

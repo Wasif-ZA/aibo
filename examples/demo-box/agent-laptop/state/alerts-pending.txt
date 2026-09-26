@@ -1,0 +1,2 @@
+[CRITICAL] DEMO: ROTATE NOW the example API token used by the demo outreach script. UNACKED for 30h
+[WARN] DEMO: outreach sender skipped 3 sends yesterday. UNACKED for 12h

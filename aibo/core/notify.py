@@ -7,8 +7,8 @@ notification.
 
 So notify() has a ladder, and it is honest about which rung it reached:
 
-  PUSH  — ntfy topic armed  -> lands on your phone.
-  FILE  — no topic          -> queued to the ask log, and we SAY SO.
+  PUSH: ntfy topic armed  -> lands on your phone.
+  FILE: no topic          -> queued to the ask log, and we SAY SO.
 
 We never pretend a file write was a delivery.
 """
@@ -34,7 +34,7 @@ class Delivery:
 
 def topic() -> str | None:
     try:
-        t = paths.NTFY_TOPIC_FILE.read_text().strip()
+        t = paths.NTFY_TOPIC_FILE.read_text(encoding="utf-8").strip()
         return t or None
     except OSError:
         return None
@@ -42,6 +42,13 @@ def topic() -> str | None:
 
 def armed() -> bool:
     return topic() is not None
+
+
+def arm_instruction() -> str:
+    script = paths.AGENT_LAPTOP / "scripts" / "arm-push-alerts.sh"
+    if script.exists():
+        return f"{script}   then subscribe on your phone (ntfy app)"
+    return f"write an ntfy topic name to {paths.NTFY_TOPIC_FILE}   then subscribe to it in the ntfy phone app"
 
 
 def _header_safe(s: str) -> str:
@@ -56,7 +63,7 @@ def _header_safe(s: str) -> str:
         s.encode("latin-1")
         return s
     except UnicodeEncodeError:
-        return str(Header(s, "utf-8").encode())
+        return str(Header(s, "utf-8").encode(maxlinelen=0))
 
 
 def notify(title: str, body: str, priority: str = "default", tags: str = "") -> Delivery:
@@ -93,11 +100,11 @@ def notify(title: str, body: str, priority: str = "default", tags: str = "") -> 
     return Delivery(
         False,
         "file",
-        "no push channel armed — this is sitting in a file you have to remember to open. "
-        "Arm it: ~/agent-laptop/scripts/arm-push-alerts.sh",
+        "no push channel armed, so this is sitting in a file you have to remember to open "
+        f"({paths.ASK_LOG}). Arm it: {arm_instruction()}",
     )
 
 
 def _log(line: str) -> None:
-    with paths.ASK_LOG.open("a") as f:
+    with paths.ASK_LOG.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
