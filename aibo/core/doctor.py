@@ -148,7 +148,9 @@ def memory_pressure() -> Check:
     if n is None:
         return Check("memory", None, "not available on this platform (needs pgrep)")
     avail = _mem_available_mb()
-    mem = f"{avail}MB available" if avail is not None else "free memory unknown (no /proc/meminfo)"
+    if avail is None:
+        return Check("memory", None, "not available on this platform (needs /proc/meminfo)")
+    mem = f"{avail}MB available"
     if n > 20:
         return Check("memory", False, f"{n} leaked Chromium renderers, {mem}. The box is swapping.")
     return Check("memory", True, f"{n} renderers, {mem}")
@@ -158,12 +160,16 @@ def email_drafts() -> Check:
     reports = paths.AGENT_LAPTOP / "reports"
     if not reports.exists():
         return _absent("email-triage", "no agent-laptop reports dir")
-    p: Path = reports / f"email-triage-{_today()}.md"
+    now = paths.now()
+    p: Path = reports / f"email-triage-{now:%Y-%m-%d}.md"
     if p.exists():
         return Check("email-triage", True, f"produced {p.name}")
-    if (reports / f"email-triage-{_days_ago(1)}.md").exists():
+    yesterday = reports / f"email-triage-{now - timedelta(days=1):%Y-%m-%d}.md"
+    if now.hour < 7 and yesterday.exists():
         return Check("email-triage", True, "no report yet today (07:00 cron); yesterday's exists")
-    return Check("email-triage", False, "no triage report today or yesterday")
+    if now.hour < 7:
+        return Check("email-triage", False, "no triage report today or yesterday")
+    return Check("email-triage", False, "no triage report today after 07:00")
 
 
 CHECKS = (push_channel, alerts_acked, applications_submitted, job_hunt_ran,

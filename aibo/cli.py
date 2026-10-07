@@ -148,7 +148,24 @@ def cmd_fix(a) -> int:
             print(f"\n  {Y}No reaper script at {reaper}.{X}\n")
             return 1
         line = f"*/20 * * * * {reaper} >/dev/null 2>&1 # aibo browser-reaper (delete this line to disable)"
-        cur = subprocess.run(["crontab", "-l"], capture_output=True, text=True).stdout
+        try:
+            listed = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        except OSError as e:
+            print(f"\n  {Y}Could not read the existing crontab: {e}.{X} Nothing was installed.\n")
+            return 1
+        error = listed.stderr.strip()
+        no_crontab = (
+            not listed.stdout.strip()
+            and (
+                error.lower().startswith("no crontab for ")
+                or error.lower().startswith("crontab: no crontab for ")
+            )
+        )
+        if listed.returncode != 0 and not no_crontab:
+            detail = error or listed.stdout.strip() or f"exit status {listed.returncode}"
+            print(f"\n  {Y}Could not read the existing crontab: {detail}.{X} Nothing was installed.\n")
+            return 1
+        cur = "" if no_crontab else listed.stdout
         if "apply-browser-reaper" in cur:
             print("\n  Already installed.\n")
             return 0

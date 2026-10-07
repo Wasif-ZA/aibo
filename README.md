@@ -1,68 +1,19 @@
-<div align="center">
+<p align="center">
+  <a href="#try-it-in-30-seconds"><strong>Try it</strong></a> &middot;
+  <a href="#commands"><strong>Commands</strong></a> &middot;
+  <a href="#how-it-works"><strong>How it works</strong></a> &middot;
+  <a href="#configuration"><strong>Configuration</strong></a>
+</p>
 
-# aibō 相棒
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11%2B-3776AB" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/dependencies-pyyaml-1a7f64" alt="One dependency: pyyaml">
+  <img src="https://img.shields.io/badge/tested%20on-Windows%2011-0078D4" alt="Tested on Windows 11">
+  <img src="https://img.shields.io/badge/status-v0.1-c47f00" alt="v0.1">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
+</p>
 
-**An assistant that knows who you are, so your tools stop asking.**
-
-*aibō (n.) — partner; the one who works alongside you.*
-
-</div>
-
----
-
-## The problem it was built for
-
-I have an always-on Linux box that job-hunts for me. It has a job scraper, a
-fit-scoring council, an auto-applier that drives a real browser, an email triager,
-a cold-outreach sender, and a liveness monitor. Six systems. All of them work.
-
-For six days straight, it applied to **zero jobs**.
-
-Not because anything crashed. The pipeline ran every morning, found roles, scored
-them, opened the forms, and filled in thirteen of twenty fields. Then it hit a
-question it had no answer for — *"Are you legally authorized to work in this
-country?"* — and threw the application away. Every morning. While a critical alert
-telling me so sat unread in a text file for **143 hours**.
-
-Two failures, and neither is a bug in any of those six systems:
-
-1. **Nothing knew who I was.** The answer to that question was already written down
-   — in a config file, and in my own words in four applications I'd already sent.
-   No system thought to look.
-2. **Nothing could reach me.** Every alert channel was *pull*. Writing to a file
-   that nobody opens is not a notification.
-
-aibō is the layer that fixes both. It is deliberately **not** a seventh pipeline.
-
-## What it does
-
-```
-aibo brief      one screen: what happened, what is stuck, what needs you
-aibo doctor     honest health — measured by outcome, never by "it ran"
-aibo asks       the queue of things only a human can decide  (--push to your phone)
-aibo answers    what your tools get asked, and what aibō may answer for you
-aibo push       prove the notification channel actually works
-```
-
-## Four ideas, and they are the whole design
-
-### 1. Facts carry provenance
-
-aibō knows things about you. Every one of them records *where it learned it*.
-
-A fact with no source is a guess — and a guess about *"do you require visa
-sponsorship?"* goes into a real application, under your real name, to a real
-employer. So aibō is allowed to answer on your behalf **only when it can point at
-where you already said it**. Everything else becomes a question for you.
-
-### 2. It measures outcomes, not uptime
-
-The monitoring this replaced asked *"did the pipeline run?"* and cheerfully answered
-**yes** for seven days while the applier died on a 404 every single morning.
-
-Running is not succeeding. Every check in `aibo doctor` demands **evidence of an
-outcome** — an application actually submitted, a draft actually written — and treats
-silence as failure, never as health.
+<br>
 
 ```
 aibō doctor  — outcome, not uptime
@@ -75,47 +26,79 @@ aibō doctor  — outcome, not uptime
   BAD  memory         43 leaked renderers, 2068MB available. The box is swapping.
 ```
 
-That output is from the first time it ever ran. Four of six, red. Nothing was on
-fire; everything was "fine".
+<p align="center"><i>The first time it ran: four of six red, while every system said "fine".</i></p>
 
-### 3. It will not give consent for you
+<br>
 
-When aibō meets a question a tool couldn't answer, it sorts it into one of two piles:
+# aibō knows who you are, so your tools stop asking.
 
-| | | aibō may answer? |
-|---|---|---|
-| **Fact** | *"Are you authorized to work in Australia?"* | **Yes** — you've stated it, it has the receipt |
-| **Consent** | *"I agree to the Recruitment Privacy Policy."* | **No** |
+An assistant layer over the automations you already run. *aibō (相棒): partner.*
 
-Consent is not a fact about you to be looked up. It is a decision to be made. An
-assistant that quietly ticks that box on your behalf is worse than no assistant, so
-that boundary is enforced in code and covered by a test.
+**If your automations are the _crew_, aibō is the _partner_ who knows your answers and when to call you.**
 
-### 4. An Ask must be blocking something real
+An always-on box ran six job-search systems: a scraper, a scorer, an auto-applier, an email
+triager, an outreach sender and a monitor. All of them worked. For six days it applied to zero
+jobs. The applier stopped at "Are you legally authorized to work in this country?" every
+morning. The alert saying so sat unread in a text file for 143 hours.
 
-`aibo asks` is the single queue of things only a human can resolve. Every entry has
-to name **what is not happening because it is unanswered.** If nothing is blocked,
-it is a log line, and it does not get to interrupt you.
+aibō fixes the two real failures: nothing knew who you were, and nothing could reach you.
 
-And `notify` is honest about whether it actually reached you. If no push channel is
-armed, it says *"this is sitting in a file you have to remember to open"* — it never
-reports a file write as a delivery. That distinction is the entire reason the 143
-hours happened.
+**Stop being asked what you already said.**
 
-## The rule it follows
+|        | Step         | Example                                                    |
+| ------ | ------------ | ---------------------------------------------------------- |
+| **01** | Install it   | _`pip install -e .`_                                       |
+| **02** | Check health | _`aibo doctor`_                                            |
+| **03** | Clear asks   | _`aibo asks --push` sends what only you can decide to your phone._ |
 
-> **Auto-fix plumbing. Block on contract.**
+> [!TIP]
+> **🤝 Or hand it to your agent.** Paste this into Claude Code or Codex:
+>
+> ```text
+> Clone https://github.com/Wasif-ZA/aibo, make a venv, run `pip install -e .`,
+> then run `aibo doctor` against examples/demo-box with AIBO_TODAY=2026-09-26,
+> AIBO_CAREER_OPS=examples/demo-box/career-ops and AIBO_AGENT_HOME=examples/demo-box/agent-laptop.
+> ```
 
-Plumbing is a leaked process, a stringified list, a stale lock — fix it, say so.
-**Contract is bytes leaving under your name in a new shape.** That always waits for
-a human. In its first hour aibō fixed a bug that was silently destroying every job
-application, and it *declined* to arm a notification channel, tick a consent box, or
-install a cron job, because those were not its call to make.
+<br>
+
+## aibō is right for you if
+
+- ✅ You run **automations that ask you the same questions** in forms
+- ✅ Your monitoring says **"it ran"** while nothing actually got done
+- ✅ Your alerts land in **files nobody opens**
+- ✅ You want answers given for you **only when you said them first**
+- ✅ You never want a tool to **tick a consent box** on your behalf
+
+<br>
+
+## Problems aibō solves
+
+| Without aibō | With aibō |
+| --- | --- |
+| ❌ A form asks a question already answered in your config, and the application is thrown away. | ✅ `aibo answers` finds where you said it and answers with the source. |
+| ❌ The monitor reports green because the pipeline ran. | ✅ `aibo doctor` needs evidence of an outcome. Silence is failure. |
+| ❌ A critical alert waits 143 hours in a text file. | ✅ `aibo push` proves the channel works; `notify` never calls a file write a delivery. |
+| ❌ A tool quietly agrees to a privacy policy as you. | ✅ Consent is never a fact. aibō refuses, and a test covers it. |
+| ❌ Ten small notices bury the one that matters. | ✅ An Ask must name what it is blocking, or it stays a log line. |
+
+<br>
+
+## Why aibō is different
+
+|                                  |                                                                       |
+| -------------------------------- | --------------------------------------------------------------------- |
+| **Facts carry provenance.**      | Every fact records where it was learned. No source, no answer.        |
+| **Outcomes, not uptime.**        | A check passes on a submitted application, not a finished run.        |
+| **Fact and consent are split.**  | It may answer a fact you stated. It never gives consent.              |
+| **Auto-fix plumbing, block on contract.** | It fixes a leaked process. Anything leaving under your name waits for you. |
+| **Not a seventh pipeline.**      | It sits over your existing systems and keeps no second answer bank.   |
+
+<br>
 
 ## Try it in 30 seconds
 
-`examples/demo-box/` is a fake box: an invented person, invented companies, invented
-alerts. Point aibo at it and every command shows real outcome-based output.
+`examples/demo-box/` is a fake box: an invented person, invented companies, invented alerts.
 
 ```bash
 git clone https://github.com/Wasif-ZA/aibo && cd aibo
@@ -132,61 +115,26 @@ $env:AIBO_TODAY="2026-09-26"; $env:AIBO_CAREER_OPS="examples/demo-box/career-ops
 aibo doctor
 ```
 
-`AIBO_TODAY` pins the clock to the fixture's dates. You will see the job hunt *ran*
-today while *zero* applications were submitted, which is the whole point of measuring
-outcomes. `aibo answers` shows one consent checkbox the fake answer bank *could*
-answer, and aibo refusing to. `aibo push` says "Not delivered": the demo has no push
-channel, and aibo never calls a file write a delivery.
+You will see the job hunt ran today while zero applications went in. `aibo answers` shows a
+consent box it could fill and refuses to. `aibo push` says "Not delivered", because the demo has
+no push channel.
 
-## Install
+## Commands
 
-With uv:
+| You want to | Run |
+| --- | --- |
+| One screen: what happened, what is stuck, what needs you | `aibo brief` |
+| Health, measured by outcome | `aibo doctor` |
+| The queue only you can decide | `aibo asks` (`--push` to your phone) |
+| What tools get asked, and what aibō may answer | `aibo answers` |
+| Prove notifications reach you | `aibo push` |
 
-```bash
-uv venv && uv pip install -e .
-.venv/bin/aibo brief          # Windows: .venv\Scripts\aibo brief
-```
+`aibo doctor` exits non-zero when anything fails, so it drops into cron or CI.
 
-With plain pip:
+## How it works
 
-```bash
-python -m venv .venv && .venv/bin/pip install -e .     # Windows: .venv\Scripts\pip install -e .
-.venv/bin/aibo brief
-```
-
-`bin/aibo` also runs it from a checkout without activating the venv.
-`aibo doctor` exits non-zero when anything is failing, so it drops straight into cron
-or CI.
-
-Tests use the standard library only:
-
-```bash
-python -m unittest -v
-```
-
-**Windows.** Everything runs. Two parts are Linux-only and say so instead of
-guessing: the memory check needs `pgrep` and `/proc` (it shows `n/a  not available on
-this platform`), and `aibo fix browser` needs `crontab` (it refuses and installs
-nothing).
-
-## Configuration
-
-aibō is an integration layer, so the one machine-specific thing about it is *where
-the systems it federates over live*. All env-overridable, nothing baked in:
-
-| Variable | Default | What |
-|---|---|---|
-| `AIBO_HOME` | the repo checkout, else `~/.aibo` | where aibo keeps its own state |
-| `AIBO_CAREER_OPS` | `~/projects/career-ops-sydney` | a [career-ops](https://github.com/santifer/career-ops) job-search checkout |
-| `AIBO_AGENT_HOME` | `~/agent-laptop` | automation root (alerts, scripts, reports) |
-| `AIBO_VAULT` | `~/box-vault` | notes vault |
-| `AIBO_TODAY` | unset (real clock) | pin "today" to a `YYYY-MM-DD`, for the demo and tests |
-
-Collectors degrade quietly: point aibō at a box with no career-ops and the job checks
-simply drop out. A collector that *crashes*, though, files an Ask against itself —
-because a monitor that has gone blind must never report "nothing needs you."
-
-## Layout
+<details>
+<summary>Open: the five core files</summary>
 
 ```
 aibo/core/
@@ -199,17 +147,46 @@ aibo/cli.py    the commands
 tests/         the boundaries that matter
 ```
 
-`answers.py` deliberately keeps **no second copy** of the answer bank. Your job-search
-tool already has one; a duplicate would drift within a week. aibō loads the *real*
-bank and probes it with the *real* questions that actually stopped an application, so
-coverage is always measured and never assumed.
+`answers.py` loads your job-search tool's real answer bank and probes it with the real questions
+that stopped an application. Coverage is measured, never assumed.
+
+</details>
+
+## Configuration
+
+<details>
+<summary>Open: where aibō looks for your systems</summary>
+
+| Variable | Default | What |
+|---|---|---|
+| `AIBO_HOME` | the repo checkout, else `~/.aibo` | aibō's own state |
+| `AIBO_CAREER_OPS` | `~/projects/career-ops-sydney` | a [career-ops](https://github.com/santifer/career-ops) checkout |
+| `AIBO_AGENT_HOME` | `~/agent-laptop` | automation root (alerts, scripts, reports) |
+| `AIBO_VAULT` | `~/box-vault` | notes vault |
+| `AIBO_TODAY` | unset (real clock) | pin "today" to a `YYYY-MM-DD`, for the demo and tests |
+
+Missing systems drop out quietly. A collector that crashes files an Ask against itself.
+
+</details>
+
+## Platforms
+
+<details>
+<summary>Open: Windows tested, two Linux-only checks</summary>
+
+- **Windows 11**: tested against the demo box.
+- **Linux only**: the memory check needs `pgrep` and `/proc`; `aibo fix browser` needs
+  `crontab`. On other platforms both say so and do nothing.
+
+</details>
 
 ## Status
 
-v0.1, and honest about it. Built in one session against one box, then made to
-install and run anywhere. Tested on Windows 11 against the demo box; the adapters still
-assume a career-ops checkout and an agent-laptop style alerts folder, and they drop
-out quietly when those are absent. The memory check and `aibo fix browser` are
-Linux-only and report that rather than guessing.
+v0.1. Built against one box, then made to install anywhere. The adapters still assume a
+career-ops checkout and an agent-laptop style alerts folder.
+
+Tests: `python -m unittest -v` (standard library only).
+
+## License
 
 MIT.

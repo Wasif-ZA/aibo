@@ -25,9 +25,17 @@ from dataclasses import dataclass
 from . import paths
 
 CONSENT_RE = re.compile(
-    r"\bi (agree|consent|acknowledge|confirm)\b|privacy (policy|statement|notice)|"
-    r"terms (and|&) conditions|keep (my |your )?(resume|cv) on file|"
-    r"consent to the (collection|processing)|data protection",
+    r"\b(?:consent(?:ed|ing)?|agree(?:d|ing)?|authori[sz](?:e|es|ed(?!\s+to\s+work)|ing|ation)|"
+    r"acknowledge(?:d|ment)?|confirm(?:ed|ation)?|permission)\b|"
+    r"\bprivacy(?:\s+(?:policy|statement|notice|terms))?\b|"
+    r"\bterms(?:\s+(?:and|&)\s+conditions|\s+of\s+(?:use|service))\b|"
+    r"\bbackground\s+(?:checks?|screenings?)\b|"
+    r"keep (my |your )?(resume|cv) on file|data protection",
+    re.I,
+)
+WORK_AUTHORIZATION_RE = re.compile(
+    r"\b(?:legally\s+)?authori[sz]ed\s+to\s+work\b|"
+    r"\bauthori[sz]ation\s+to\s+work\b|\bwork\s+authori[sz]ation\b",
     re.I,
 )
 
@@ -45,7 +53,12 @@ class Question:
 
 
 class BankUnavailable(Exception):
-    """career-ops is installed but its answer bank could not be loaded."""
+    """career-ops is installed but its answer data could not be loaded."""
+
+
+def _consent_like(label: str) -> bool:
+    factual_label = WORK_AUTHORIZATION_RE.sub("", label)
+    return CONSENT_RE.search(factual_label) is not None
 
 
 def _bank():
@@ -81,8 +94,8 @@ def blocking_questions(days: int = 14) -> list[Question]:
     try:
         with paths.CO_APPLIED_LOG.open(encoding="utf-8", newline="") as f:
             rows = list(csv.reader(f, delimiter="\t"))
-    except OSError:
-        return []
+    except (OSError, UnicodeError, csv.Error) as e:
+        raise BankUnavailable(f"cannot read the applied log at {paths.CO_APPLIED_LOG}: {e}") from e
 
     for r in rows:
         if len(r) < 7 or r[0] < cutoff:
@@ -98,7 +111,7 @@ def blocking_questions(days: int = 14) -> list[Question]:
         for label in (q.strip() for q in inner[0].split(";")):
             if not label or label in seen:
                 continue
-            kind = "consent" if CONSENT_RE.search(label) else "fact"
+            kind = "consent" if _consent_like(label) else "fact"
             ans = None
             if kind == "fact":                  # consent is never looked up, whatever the bank says
                 try:
